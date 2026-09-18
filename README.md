@@ -1,23 +1,24 @@
-# Intelligent Traffic Surveillance & Vehicle Analytics
+# Traffic Vision Analytics
 
-A modular, production-grade Computer Vision pipeline for traffic surveillance and kinematic vehicle analytics. The system performs multi-class vehicle detection, persistent multi-object tracking, planar perspective rectification via 4-point homography, real-world physical velocity estimation ($\text{km/h}$ and $\text{m/s}$), and automated export of annotated MP4 video, frame-by-frame observation logs (`vehicle_data.csv`), and consolidated summary metrics (`traffic_summary.json`).
+A computer vision pipeline that takes traffic surveillance video, detects and tracks vehicles across frames, corrects for camera perspective using homography, estimates real-world vehicle speeds, and exports the results as annotated video, CSV logs, and a JSON summary.
 
-![Traffic Vision Analytics Demo](docs/demo_preview.jpg)
+Built with OpenCV and Ultralytics YOLO11n. Runs entirely from the command line — no GUI or display server needed.
+
+![Annotated traffic frame showing detection, tracking, and speed overlays](docs/demo_preview.jpg)
 
 ---
 
-## 🎯 Evaluator Quickstart (VITyarthi Headless Evaluation)
+## Quick Start
 
-The system is designed for **headless command-line execution** without requiring a GUI or display server. This guarantees reproducible, uninterrupted evaluation in terminal sessions, SSH, Docker containers, and automated grading environments.
+A small sample video (`data/sample_traffic.mp4`) is included in the repo so you can run the pipeline immediately after cloning.
 
-### 1. Environment Setup
+### 1. Setup
 
 ```bash
-# Clone the repository
 git clone https://github.com/Devansh-Bansal-AI/traffic-vision-analytics.git
 cd traffic-vision-analytics
 
-# Create & activate a virtual environment
+# Create and activate a virtual environment
 python -m venv .venv
 
 # Windows PowerShell:
@@ -27,124 +28,99 @@ python -m venv .venv
 # Linux / macOS:
 source .venv/bin/activate
 
-# Upgrade pip & install dependencies
+# Install dependencies
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### 2. Run the Automated Test Suite
-
-Verify system integrity, homography transforms, tracker persistence, HCM Level of Service, and metric calculations:
+### 2. Run Tests
 
 ```bash
 python -m pytest -v
 ```
-*Expected Output*: `13 passed in ~0.2s`
 
-### 3. Primary Evaluation Command (Strict Headless CLI Execution)
+Expected: `13 passed`.
 
-Place your traffic video in `data/` (e.g. `data/18437773-uhd_3840_2160_50fps.mp4` or `data/traffic.mp4`) and run the headless pipeline:
+### 3. Run the Pipeline
 
 ```bash
-python main.py --input data/18437773-uhd_3840_2160_50fps.mp4 --max-frames 300
+python main.py --input data/sample_traffic.mp4 --max-frames 50
 ```
 
-> **Zero Configuration Overhead**: The system automatically detects and loads `config/calibration.json` (or synthesizes a valid urban road geometry if missing). No manual configuration is required for evaluation.
->
-> **Pure Headless Output**: No desktop windows (`cv2.imshow`) are spawned. Live progress is emitted to stdout (`[CLI Engine] Processed 50/300 frames | Active vehicles: 8`), and all artifacts are saved directly to `outputs/`.
+The system auto-loads `config/calibration.json` for perspective correction. If the file is missing, it generates a default geometry from the video dimensions — no manual config needed.
+
+All output goes to `outputs/` (annotated video, CSV, JSON). No desktop windows are opened; progress prints to stdout.
+
+> To use your own video, just place it in `data/` and pass the path via `--input`.
 
 ---
 
-## 📚 Course Alignment (CSE3010 Computer Vision)
+## How Speed Measurement Works
 
-The architecture directly connects to the VIT CSE3010 Computer Vision syllabus:
+### Calibrated Mode (default)
 
-| Syllabus Module | Project Implementation & Theoretical Application |
-|---|---|
-| **Module 1: Image & Video Processing** | Video ingestion, frame extraction, resolution-adaptive HUD typography, spatial coordinate normalization. |
-| **Module 2: Perspective Geometry & Homography** | 4-point planar homography ($\mathbf{x}' \sim \mathbf{H}\mathbf{x}$) mapping 2D image coordinates to the metric ground plane for real-world velocity measurements. |
-| **Module 3: Object Detection & Classification** | Ultralytics YOLO11n deep convolutional detector for vehicle classification (`car`, `bus`, `truck`, `motorcycle`). |
-| **Module 4: Motion Analysis & Background Subtraction** | OpenCV MOG2 baseline with morphological opening/closing for comparative study; multi-object centroid and IoU tracking across temporal sequences. |
+The pipeline uses a 3×3 homography matrix computed from 4 ground-plane landmarks (`config/calibration.json`) to convert pixel motion into real-world distances in metres. Speed is then:
+
+```
+v = displacement_metres / time_seconds
+```
+
+Reported in both m/s and km/h on the bounding box overlays, CSV, and JSON.
+
+### Uncalibrated Mode
+
+Without calibration (pass `--uncalibrated`), speed is reported in pixels/s. Useful if you don't have reference points for your video.
+
+```bash
+python main.py --input data/sample_traffic.mp4 --uncalibrated --max-frames 50
+```
+
+### MOG2 Baseline Detector
+
+To compare YOLO detection against classical background subtraction:
+
+```bash
+python main.py --input data/sample_traffic.mp4 --detector mog2 --max-frames 50
+```
+
+Uses `cv2.createBackgroundSubtractorMOG2` with morphological filtering. Highlights the difference between motion-based segmentation and semantic detection (e.g., MOG2 loses stationary vehicles at red lights).
 
 ---
 
-## ⚙️ Operating Modes & Speed Measurement
+## Outputs
 
-### 1. Calibrated Physical Mode (Recommended)
-By supplying a calibration file with `--calibration config/calibration.json`, the pipeline applies a $3 \times 3$ projective homography matrix $\mathbf{H}$ calculated from 4 coplanar ground landmarks:
-- **Displacement**: Converted from camera pixels to physical ground distance in metres.
-- **Speed**: Computed over a moving temporal window ($N=5$) as $v = \frac{\Delta d}{\Delta t}$ in $\text{m/s}$.
-- **Physical Velocity**: Converted and reported directly in $\text{km/h}$ ($v_{\text{km/h}} = 3.6 \cdot v_{\text{m/s}}$) on bounding box overlays, CSV logs, and JSON summaries.
-- A calibrated landmark configuration (`config/calibration.json`) calibrated for multi-lane urban surveillance is included in the repository.
+Every run produces three files in `outputs/`:
 
-### 2. Uncalibrated Baseline Mode
-When running without `--calibration`:
-```bash
-python main.py --input data/traffic.mp4 --max-frames 300
-```
-- The system evaluates motion as raw pixel displacement in $\text{pixels/s}$.
-- The HUD, CSV logs, and JSON summaries explicitly tag speeds as uncalibrated pixel rates to prevent inaccurate interpretation.
+### `annotated_video.mp4`
+Video with bounding boxes, vehicle IDs, trajectory trails, speed labels (km/h or px/s), and a HUD banner showing frame count, active vehicles, and class breakdown.
 
-### 3. Course Baseline: Motion-Based MOG2 Detector
-To compare semantic detection with classical background subtraction (Module 4):
-```bash
-python main.py --input data/traffic.mp4 --detector mog2 --max-frames 300
-```
-- Uses `cv2.createBackgroundSubtractorMOG2` with morphological noise filtering.
-- Useful for comparing semantic vehicle localization against motion-only foreground segmentations.
-
----
-
-## 📊 Generated Outputs (`outputs/`)
-
-Every pipeline run automatically produces three structured artifacts in [outputs/](outputs/):
-
-### 1. `outputs/annotated_video.mp4`
-Full resolution output video featuring:
-- Bounding boxes color-coded with class labels and confidence scores.
-- Persistent `vehicle_id` tracking tags.
-- Historical centroid motion trajectories.
-- Calibrated $\text{km/h}$ or pixel displacement speed tags.
-- Semi-transparent heads-up display (HUD) banner showing frame count, active vehicle counts, class breakdown, and calibration status.
-
-### 2. `outputs/vehicle_data.csv`
-Detailed observation ledger logging every tracked vehicle per frame:
+### `vehicle_data.csv`
+One row per tracked vehicle per frame:
 ```csv
 frame,vehicle_id,class,confidence,x,y,width,height,speed,speed_unit,speed_kmh
 0,1,car,0.8969,1997,1608,488,374,0.0000,m/s,0.00
 1,1,car,0.9007,1997,1607,490,376,1.0000,m/s,3.60
-...
 ```
 
-### 3. `outputs/traffic_summary.json`
-Consolidated statistical analytics report:
+### `traffic_summary.json`
+Aggregated stats for the whole run:
 ```json
 {
-  "frames_processed": 300,
-  "unique_vehicle_tracks": 29,
-  "average_active_vehicles_per_frame": 7.62,
+  "frames_processed": 20,
+  "unique_vehicle_tracks": 8,
+  "average_active_vehicles_per_frame": 6.45,
   "congestion_level": "Moderate",
-  "total_vehicle_detections": 2285,
-  "vehicle_detections_by_class": {
-    "car": 1915,
-    "bus": 351,
-    "truck": 19
-  },
-  "average_speed": 9.084,
-  "maximum_speed": 37.552,
-  "speed_unit": "m/s",
-  "speed_calibrated": true,
-  "average_speed_kmh": 32.70,
-  "maximum_speed_kmh": 135.19,
-  "input_resolution": "3840x2160",
-  "video_fps": 50.0,
-  "output_video": "outputs/annotated_video.mp4"
+  "total_vehicle_detections": 129,
+  "vehicle_detections_by_class": {"car": 107, "bus": 19, "truck": 3},
+  "average_speed_kmh": 15.92,
+  "maximum_speed_kmh": 78.51,
+  "speed_calibrated": true
 }
 ```
 
 ---
 
-## 🛠️ CLI Options & Performance Tuning
+## CLI Options
 
 ```text
 usage: main.py [-h] --input INPUT [--output-dir OUTPUT_DIR]
@@ -156,92 +132,92 @@ usage: main.py [-h] --input INPUT [--output-dir OUTPUT_DIR]
                [--skip SKIP] [--show]
 ```
 
-### Performance Flags for High-Resolution Videos
-- **Frame Skipping (`--skip N`)**: For 4K UHD video on CPU, `--skip 1` processes every 2nd frame, doubling throughput while maintaining track stability:
-  ```bash
-  python main.py --input data/traffic.mp4 --calibration config/calibration.json --skip 1
-  ```
-- **Inference Resolution (`--imgsz`)**: Defaults to `640` px for optimal speed/accuracy trade-off.
-- **Hardware Acceleration (`--device`)**: Set `--device 0` or `--device cuda` if a CUDA-enabled GPU is available.
-- **Optional Visual Preview (`--show`)**: Opens a live OpenCV desktop window (only for local interactive desktop debugging; not required for headless evaluation).
+Some useful flags:
+- `--skip N` — process every (N+1)th frame. Useful for speeding up 4K video on CPU.
+- `--imgsz 640` — inference resolution (default 640px).
+- `--device cuda` — use GPU if available.
+- `--show` — open a live preview window (only works on a desktop with a display).
+- `--conf 0.35` — detection confidence threshold.
+- `--calibration path/to/file.json` — use a custom calibration file.
+- `--uncalibrated` — force pixel-based speed (no homography).
 
 ---
 
-## 🧪 Test Suite Execution
-
-Run the complete test suite with verbose reporting:
+## Test Suite
 
 ```bash
 python -m pytest -v
 ```
 
-- All 13 unit and integration tests validate:
-- Bounding-box IoU computation (boundary, overlap, and non-overlap cases).
-- Tracker persistence across temporal sequence frames.
-- Detection dataclass integrity and schema compatibility.
-- Planar homography coordinate transformations.
-- Calibrated $\text{m/s} \to \text{km/h}$ metric speed conversion.
-- Congestion level and statistical aggregation in `TrafficAnalyzer`.
-- Highway Capacity Manual (HCM) Level of Service (LOS A–F) evaluation.
-- Operating speed percentiles ($V_{85}$, $V_{15}$) computation.
-- MOG2 background subtractor initialization and morphological filtering.
-- Configuration file fallback and dynamic road geometry synthesis resilience.
+13 tests covering:
+- Bounding-box IoU computation
+- Tracker persistence across frames
+- Homography coordinate transforms
+- Speed calculation (calibrated m/s → km/h conversion)
+- Traffic analyzer congestion classification
+- HCM Level of Service evaluation
+- Operating speed percentiles (V85, V15)
+- MOG2 detector initialization
+- Configuration fallback when calibration files are missing
 
 ---
 
-## 📂 Repository Structure
+## Project Structure
 
 ```text
 traffic-vision-analytics/
-├── main.py                      # Main CLI entry point & orchestrator
-├── requirements.txt             # Project dependencies (pinned compatible versions)
-├── README.md                    # Comprehensive evaluator documentation
-├── statement.md                 # Formal project problem statement & scope
-├── LICENSE                      # MIT Open Source License
+├── main.py                      # CLI entry point
+├── requirements.txt             # Dependencies
+├── README.md
+├── statement.md                 # Project problem statement
+├── LICENSE                      # MIT
 ├── config/
-│   ├── calibration.json         # Verified 4-point homography road calibration
-│   └── calibration.example.json # General template for user calibrations
+│   ├── calibration.json         # 4-point homography calibration
+│   └── calibration.example.json # Template for custom calibrations
 ├── src/
 │   ├── __init__.py
-│   ├── detector.py              # YOLO11n & MOG2 dual detector engine
-│   ├── tracker.py               # Centroid & IoU multi-object tracking
-│   ├── homography.py            # Planar perspective homography mapping
-│   ├── speed_estimator.py       # Discrete velocity estimation & filtering
-│   ├── traffic_analyzer.py      # Statistical aggregation & congestion classification
-│   ├── visualizer.py            # Resolution-adaptive overlays & HUD rendering
-│   └── video_processor.py       # Frame processing loop & CSV/MP4 streaming
+│   ├── detector.py              # YOLO and MOG2 detection
+│   ├── tracker.py               # Multi-object tracking (centroid + IoU)
+│   ├── homography.py            # Perspective transform
+│   ├── speed_estimator.py       # Velocity estimation
+│   ├── traffic_analyzer.py      # Stats aggregation and congestion classification
+│   ├── visualizer.py            # Bounding boxes, HUD, trajectory rendering
+│   └── video_processor.py       # Frame loop, CSV/MP4 output
 ├── tests/
-│   ├── test_analyzer.py         # Traffic analyzer unit tests
-│   ├── test_homography.py       # Homography mapping unit tests
-│   ├── test_pipeline_integration.py # End-to-end integration & calibrated tests
-│   ├── test_speed.py            # Speed calculation unit tests
-│   └── test_tracker.py          # Tracking & IoU unit tests
+│   ├── test_analyzer.py
+│   ├── test_homography.py
+│   ├── test_pipeline_integration.py
+│   ├── test_speed.py
+│   └── test_tracker.py
 ├── scripts/
-│   └── generate_pdf_report.py   # Automated 15-section PDF report compiler
+│   └── generate_pdf_report.py   # Builds the PDF report from markdown
 ├── data/
-│   ├── .gitkeep
-│   └── README.md                # Video placement guide (large videos excluded from Git)
+│   ├── sample_traffic.mp4       # Small sample clip (committed for quick evaluation)
+│   └── README.md
 ├── outputs/
-│   └── .gitkeep                 # Output target directory
+│   ├── vehicle_data.csv         # Example output from a sample run
+│   ├── traffic_summary.json     # Example output from a sample run
+│   └── sample_annotated_frame_150.jpg
 ├── docs/
-│   ├── ARCHITECTURE.md          # Full architectural & mathematical specification
-│   └── demo_preview.jpg         # Sample annotated detection visual
+│   ├── ARCHITECTURE.md          # System design and math
+│   └── demo_preview.jpg
 └── report/
-    ├── PROJECT_REPORT.md        # Comprehensive 15-section academic project report
-    └── PROJECT_REPORT.pdf       # Compiled submission-ready PDF project report
+    ├── PROJECT_REPORT.md        # Full project report
+    └── PROJECT_REPORT.pdf       # PDF version for portal upload
 ```
 
 ---
 
-## 📄 Key Documentation Links
+## Documentation
 
-- **Compiled PDF Project Report (Portal Ready)**: [report/PROJECT_REPORT.pdf](report/PROJECT_REPORT.pdf)
-- **Academic Project Report (Markdown)**: [report/PROJECT_REPORT.md](report/PROJECT_REPORT.md)
-- **System Architecture & Math**: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- **Project Problem Statement**: [statement.md](statement.md)
-- **Calibration Geometry**: [config/calibration.json](config/calibration.json)
+- [Project Report (PDF)](report/PROJECT_REPORT.pdf) — for portal submission
+- [Project Report (Markdown)](report/PROJECT_REPORT.md)
+- [Architecture & Technical Details](docs/ARCHITECTURE.md)
+- [Problem Statement](statement.md)
+- [Calibration Config](config/calibration.json)
 
 ---
 
-## 📜 License
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+## License
+
+MIT — see [LICENSE](LICENSE).
