@@ -3,9 +3,19 @@ __pycache__/
 *.pyc
 .venv/
 venv/
-outputs/*
-!outputs/.gitkeep
+
+# Large input videos (keep sample clip)
 data/*
 !data/.gitkeep
 !data/README.md
+!data/sample_traffic.mp4
+
+# Output artifacts (keep sample outputs for evaluator reference)
+outputs/*
+!outputs/.gitkeep
+!outputs/vehicle_data.csv
+!outputs/traffic_summary.json
+!outputs/sample_annotated_frame_150.jpg
+
+# YOLO weights (downloaded at runtime)
 *.pt
