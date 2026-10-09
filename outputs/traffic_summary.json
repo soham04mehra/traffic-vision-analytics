@@ -33,6 +33,6 @@
   "speed_percentile_15_kmh": 0.8,
   "input_resolution": "854x480",
   "video_fps": 50.0,
-  "output_video": "C:\\Users\\Devansh\\Downloads\\traffic-vision-analytics-FINAL\\outputs\\annotated_video.mp4",
-  "output_csv": "C:\\Users\\Devansh\\Downloads\\traffic-vision-analytics-FINAL\\outputs\\vehicle_data.csv"
+  "output_video": "C:\\Users\\SohamSinghMehra\\Downloads\\traffic-vision-analytics-FINAL\\outputs\\annotated_video.mp4",
+  "output_csv": "C:\\Users\\SohamSinghMehra\\Downloads\\traffic-vision-analytics-FINAL\\outputs\\vehicle_data.csv"
 }

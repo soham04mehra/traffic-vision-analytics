@@ -47,7 +47,7 @@ class ReportPDF(FPDF):
         if self.page_no() > 1:
             self.set_font("helvetica", "I", 8)
             self.set_text_color(120, 120, 120)
-            self.cell(0, 8, "CSE3010 Computer Vision - Project Report | Devansh Bansal", 0, 0, "L")
+            self.cell(0, 8, "CSE3010 Computer Vision - Project Report | Soham Singh Mehra", 0, 0, "L")
             self.cell(0, 8, f"Page {self.page_no()}", 0, 1, "R")
             self.set_draw_color(210, 210, 210)
             self.line(10, 16, 200, 16)

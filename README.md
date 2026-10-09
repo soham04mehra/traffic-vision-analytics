@@ -15,7 +15,7 @@ A small sample video (`data/sample_traffic.mp4`) is included in the repo so you 
 ### 1. Setup
 
 ```bash
-git clone https://github.com/Devansh-Bansal-AI/traffic-vision-analytics.git
+git clone https://github.com/Soham-Singh-Mehra-AI/traffic-vision-analytics.git
 cd traffic-vision-analytics
 
 # Create and activate a virtual environment

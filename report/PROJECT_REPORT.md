@@ -9,8 +9,8 @@
 | **Project Title** | Traffic Vision Analytics — Vehicle Detection, Tracking & Speed Estimation |
 | **Course** | CSE3010 – Computer Vision |
 | **Program** | B.Tech Computer Science and Engineering |
-| **Student** | Devansh Bansal |
-| **GitHub** | [Devansh-Bansal-AI/traffic-vision-analytics](https://github.com/Devansh-Bansal-AI/traffic-vision-analytics) |
+| **Student** | Soham Singh Mehra |
+| **GitHub** | [Soham-Singh-Mehra-AI/traffic-vision-analytics](https://github.com/Soham-Singh-Mehra-AI/traffic-vision-analytics) |
 | **Term** | Fall 2026 |
 
 ---
